@@ -833,6 +833,52 @@ async function deleteStatusConfirm(id) {
 // (lihat README) karena butuh service_role key yang tidak boleh
 // ditaruh di kode publik GitHub Pages.
 // ============================================================
+function openCreateUserModal() {
+  document.getElementById('createUserForm').reset();
+  openModal('createUserModal');
+}
+
+document.getElementById('createUserForm').addEventListener('submit', async function (e) {
+  e.preventDefault();
+
+  const payload = {
+    nama: document.getElementById('newUserNama').value.trim(),
+    email: document.getElementById('newUserEmail').value.trim(),
+    password: document.getElementById('newUserPassword').value,
+    role: document.getElementById('newUserRole').value
+  };
+
+  showLoading(true);
+  try {
+    const { data: sessionData } = await supabaseClient.auth.getSession();
+    const token = sessionData.session.access_token;
+
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/create-user`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'apikey': SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+    showLoading(false);
+
+    if (!res.ok) {
+      showToast(result.error || 'Gagal membuat user.', 'error');
+      return;
+    }
+
+    closeModal('createUserModal');
+    await logAksi('Tambah User', `Menambahkan user baru: ${payload.nama} (${payload.role})`);
+    showToast('User baru berhasil dibuat.');
+    loadUsers();
+  } catch (err) {
+    handleError(err);
+  }
+});
+
 async function loadUsers() {
   showLoading(true);
   const { data, error } = await supabaseClient.from('profiles').select('*').order('nama');
