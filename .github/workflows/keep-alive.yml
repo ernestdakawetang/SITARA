@@ -1,0 +1,23 @@
+name: Keep Supabase Alive
+
+# Tujuan: mengirim 1 query kecil ke database Supabase secara terjadwal,
+# supaya project gratis tidak di-pause otomatis oleh Supabase karena
+# dianggap "tidak aktif" (batasnya 7 hari tanpa query sama sekali).
+# Dijadwalkan setiap Senin & Kamis -> jarak antar ping cuma 3-4 hari,
+# jauh di bawah batas 7 hari, jadi aman meski 1x jadwal terlewat.
+
+on:
+  schedule:
+    - cron: "0 5 * * 1,4"   # Setiap Senin & Kamis, jam 05:00 UTC (12:00 WIB)
+  workflow_dispatch:         # Supaya bisa juga dipicu manual dari tab "Actions" di GitHub
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase (query kecil ke tabel status_master)
+        run: |
+          curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/status_master?select=id&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
