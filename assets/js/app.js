@@ -335,7 +335,7 @@ document.getElementById('inputBerkasForm').addEventListener('submit', async func
   };
 
   showLoading(true);
-  const { data: kodeData, error: kodeErr } = await supabaseClient.rpc('generate_kode_berkas');
+  const { data: kodeData, error: kodeErr } = await supabaseClient.rpc('generate_kode_berkas', { p_jenis_berkas_id: payload.jenis_berkas_id });
   if (kodeErr) { handleError(kodeErr); return; }
 
   const { error } = await supabaseClient.from('berkas').insert({
@@ -684,9 +684,9 @@ function renderJenisBerkasList() {
   }
   container.innerHTML = jenisBerkasList.map(j => `
     <div class="checklist-item" style="justify-content:space-between;cursor:pointer;${selectedJenisIdForKelengkapan == j.id ? 'border-color:var(--primary);background:var(--primary-light);' : ''}" onclick="selectJenisForKelengkapan(${j.id}, '${escapeQuote(j.nama)}')">
-      <span>${j.nama}</span>
+      <span>${j.nama} <span class="badge badge-secondary" style="margin-left:4px;">${j.kode_prefix || 'BRK'}</span></span>
       <span>
-        <button class="btn btn-outline btn-sm btn-icon" onclick="event.stopPropagation(); openJenisModal(${j.id}, '${escapeQuote(j.nama)}')"><i class="fa-solid fa-pen"></i></button>
+        <button class="btn btn-outline btn-sm btn-icon" onclick="event.stopPropagation(); openJenisModal(${j.id}, '${escapeQuote(j.nama)}', '${escapeQuote(j.kode_prefix || '')}')"><i class="fa-solid fa-pen"></i></button>
         <button class="btn btn-danger btn-sm btn-icon" onclick="event.stopPropagation(); deleteJenisConfirm(${j.id})"><i class="fa-solid fa-trash"></i></button>
       </span>
     </div>
@@ -721,10 +721,11 @@ function renderKelengkapanListForSelected() {
   `).join('');
 }
 
-function openJenisModal(id, nama) {
+function openJenisModal(id, nama, kodePrefix) {
   document.getElementById('jenisForm').reset();
   document.getElementById('jenisId').value = id || '';
   document.getElementById('jenisNama').value = nama || '';
+  document.getElementById('jenisKodePrefix').value = kodePrefix || '';
   document.getElementById('jenisModalTitle').innerText = id ? 'Edit Jenis Berkas' : 'Tambah Jenis Berkas';
   openModal('jenisModal');
 }
@@ -733,11 +734,18 @@ document.getElementById('jenisForm').addEventListener('submit', async function (
   e.preventDefault();
   const id = document.getElementById('jenisId').value;
   const nama = document.getElementById('jenisNama').value.trim();
+  const kodePrefix = document.getElementById('jenisKodePrefix').value.trim().toUpperCase();
+
+  const duplikat = jenisBerkasList.some(j => j.kode_prefix === kodePrefix && String(j.id) !== String(id));
+  if (duplikat) {
+    showToast(`Kode Prefix "${kodePrefix}" sudah dipakai Jenis Berkas lain. Gunakan prefix yang berbeda.`, 'error');
+    return;
+  }
 
   showLoading(true);
   const { error } = id
-    ? await supabaseClient.from('jenis_berkas').update({ nama }).eq('id', id)
-    : await supabaseClient.from('jenis_berkas').insert({ nama });
+    ? await supabaseClient.from('jenis_berkas').update({ nama, kode_prefix: kodePrefix }).eq('id', id)
+    : await supabaseClient.from('jenis_berkas').insert({ nama, kode_prefix: kodePrefix });
   showLoading(false);
 
   if (error) { handleError(error); return; }
